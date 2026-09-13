@@ -94,6 +94,13 @@
   #tileInfo.bad { background: rgba(231,76,60,0.92); }
   .topbar .ver { font-size: 11px; font-weight: 400; opacity: 0.75; margin-left: 6px; }
 
+  #layerBtn {
+    position: absolute; right: 14px; bottom: 22px; z-index: 1200;
+    background: #fff; color: #142a40; border: 1px solid #c9d4dc; border-radius: 24px;
+    padding: 9px 15px; font-size: 13px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.22);
+  }
+
   #menuBtn {
     display: none; position: absolute; right: 14px; bottom: 22px; z-index: 1200;
     background: #142a40; color: #fff; border: none; border-radius: 24px;
@@ -106,6 +113,7 @@
     .topbar .status { float: none; display: inline-block; margin-top: 4px; }
     .legend { display: none; }
     #menuBtn { display: block; }
+    #layerBtn { bottom: 78px; }
     .panel {
       left: 0; right: 0; top: auto; bottom: 0; width: 100%;
       max-height: 62vh; border-radius: 16px 16px 0 0;
@@ -148,6 +156,7 @@
 
 <div class="panel" id="panel"></div>
 <button id="menuBtn">📋 行程 / 特产</button>
+<button id="layerBtn">🛰 卫星影像</button>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -253,6 +262,13 @@ const amapLayer = L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang
 });
 const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 18, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+});
+// 卫星影像 + 地名标注（高德）
+const satLayer = L.tileLayer('https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
+  subdomains: '1234', maxZoom: 18, attribution: '&copy; 高德卫星'
+});
+const amapLabel = L.tileLayer('https://wprd0{s}.is.autonavi.com/appmaptile?x={x}&y={y}&z={z}&lang=zh_cn&size=1&scl=1&style=8', {
+  subdomains: '1234', maxZoom: 18
 });
 const tileInfo = document.getElementById('tileInfo');
 function setTileInfo(txt, cls){
@@ -459,6 +475,28 @@ panel.addEventListener('click', function(e) {
 // —— 手机：底部抽屉开关 ——
 const menuBtn = document.getElementById('menuBtn');
 menuBtn.addEventListener('click', function(){ panel.classList.toggle('open'); });
+
+// —— 卫星影像 / 标准地图 切换 ——
+let isSat = false;
+const layerBtn = document.getElementById('layerBtn');
+layerBtn.addEventListener('click', function(){
+  if (!isSat) {
+    if (map.hasLayer(amapLayer)) map.removeLayer(amapLayer);
+    if (map.hasLayer(osmLayer)) map.removeLayer(osmLayer);
+    satLayer.addTo(map);
+    amapLabel.addTo(map);
+    isSat = true;
+    layerBtn.textContent = '🗺 标准地图';
+    setTileInfo('底图：高德卫星影像', 'ok');
+  } else {
+    map.removeLayer(satLayer);
+    map.removeLayer(amapLabel);
+    if (tileSwapped) { osmLayer.addTo(map); } else { amapLayer.addTo(map); }
+    isSat = false;
+    layerBtn.textContent = '🛰 卫星影像';
+    setTileInfo(tileSwapped ? '底图：OSM ✓备用' : '底图：高德 ✓', 'ok');
+  }
+});
 
 // —— 初始视野 ——
 const allPoints = DEST.map(function(d){ return gcj(d.lat, d.lng); }).concat(SIGHTS.map(function(s){ return gcj(s.lat, s.lng); }));
