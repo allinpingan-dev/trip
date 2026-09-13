@@ -103,6 +103,13 @@
     padding: 9px 15px; font-size: 13px; font-weight: 700; cursor: pointer;
     box-shadow: 0 2px 12px rgba(0,0,0,0.22);
   }
+  #spotBtn {
+    position: absolute; right: 14px; bottom: 68px; z-index: 1200;
+    background: #fff; color: #7d3c98; border: 1px solid #d9c2e8; border-radius: 24px;
+    padding: 9px 15px; font-size: 13px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.22);
+  }
+  #spotBtn.off { opacity: 0.55; }
 
   #menuBtn {
     display: none; position: absolute; right: 14px; bottom: 22px; z-index: 1200;
@@ -117,6 +124,7 @@
     .legend { display: none; }
     #menuBtn { display: block; }
     #layerBtn { bottom: 78px; }
+    #spotBtn { bottom: 134px; }
     .panel {
       left: 0; right: 0; top: auto; bottom: 0; width: 100%;
       max-height: 62vh; border-radius: 16px 16px 0 0;
@@ -152,7 +160,7 @@
   <span class="numkey">⑥</span>室韦　<span class="numkey">⑦</span>黑山头　<span class="numkey">⑧</span>满洲里<br/>
   <div class="rule"></div>
   <span class="dot" style="background:#e67e22"></span>景点（成吉思汗广场/湿地/国门等）<br/>
-  <span class="dot" style="background:#9b59b6"></span>打卡点（白桦林/恩和/临江屯等）<br/>
+  <span class="dot" style="background:#9b59b6"></span>打卡点（卡线卡点/186彩带河/白桦林等）<br/>
   <span style="color:#c0392b;font-weight:700">红标「需预约」</span> = 仅莫尔格勒河<br/>
   <span style="color:#1e7e34;font-weight:700">绿标「免预约」</span> = 其余景点<br/>
   <span style="color:#1e7e34;font-weight:700">🛣 绿标签</span> = 柏油/高速　<span style="color:#c0392b;font-weight:700">红标签</span> = 砂石/土路<br/>
@@ -162,6 +170,7 @@
 <div class="panel" id="panel"></div>
 <button id="menuBtn">📋 行程 / 特产</button>
 <button id="layerBtn">🛰 卫星影像</button>
+<button id="spotBtn">📷 打卡点</button>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -201,6 +210,12 @@ const SIGHTS = [
 
 // —— 打卡点（摄影/网红点，紫色圆点） ——
 const SPOTS = [
+  { name:"九卡", lat:50.9720, lng:119.6150, note:"卡线边防卡点，额尔古纳河畔；Day4 室韦→黑山头沿途" },
+  { name:"八卡", lat:50.8890, lng:119.5240, note:"卡线边防卡点，额尔古纳河畔" },
+  { name:"七卡", lat:50.7470, lng:119.5250, note:"卡线边防卡点，额尔古纳河畔" },
+  { name:"五卡", lat:50.4580, lng:119.2610, note:"卡线边防卡点，快到黑山头" },
+  { name:"186彩带河", lat:50.0800, lng:118.8500, note:"边防公路186界碑处，距黑山头约46km；Day5 顺路（坐标为估算）" },
+  { name:"根河源国家湿地公园", lat:50.8590, lng:121.6480, note:"根河市区东北，湿地+冷极景观；Day3 可选" },
   { name:"中国冷极·根河", lat:50.7820, lng:121.5280, note:"根河=中国冷极，市区有冷极地标；Day3顺路" },
   { name:"恩和俄罗斯民族乡", lat:50.8210, lng:119.9090, note:"俄式木刻楞小镇（绕行可选，不在主环线）" },
   { name:"白桦林景区", lat:50.5280, lng:120.1200, note:"金秋白桦林（绕行可选，额尔古纳→恩和路上）" },
@@ -336,7 +351,8 @@ SIGHTS.forEach(function(s) {
   L.marker(gcj(s.lat, s.lng), { icon: icon }).addTo(map).bindPopup(popup);
 });
 
-// —— 打卡点标记（紫色圆点） ——
+// —— 打卡点标记（紫色圆点，可开关） ——
+const spotLayer = L.layerGroup();
 SPOTS.forEach(function(p) {
   const icon = L.divIcon({
     className: '',
@@ -344,8 +360,9 @@ SPOTS.forEach(function(p) {
     iconSize: [150, 30],
     iconAnchor: [75, 7]
   });
-  L.marker(gcj(p.lat, p.lng), { icon: icon }).addTo(map).bindPopup('<b>📷 ' + p.name + '</b><br/>' + p.note);
+  spotLayer.addLayer(L.marker(gcj(p.lat, p.lng), { icon: icon }).bindPopup('<b>📷 ' + p.name + '</b><br/>' + p.note));
 });
+spotLayer.addTo(map);
 
 // —— 工具 ——
 function haversineKm(a, b){
@@ -521,6 +538,23 @@ layerBtn.addEventListener('click', function(){
     isSat = false;
     layerBtn.textContent = '🛰 卫星影像';
     setTileInfo(tileSwapped ? '底图：OSM ✓备用' : '底图：高德 ✓', 'ok');
+  }
+});
+
+// —— 打卡点显示/隐藏开关 ——
+let spotsOn = true;
+const spotBtn = document.getElementById('spotBtn');
+spotBtn.addEventListener('click', function(){
+  if (spotsOn) {
+    map.removeLayer(spotLayer);
+    spotsOn = false;
+    spotBtn.textContent = '📷 打卡点（已隐藏）';
+    spotBtn.classList.add('off');
+  } else {
+    spotLayer.addTo(map);
+    spotsOn = true;
+    spotBtn.textContent = '📷 打卡点';
+    spotBtn.classList.remove('off');
   }
 });
 
