@@ -152,7 +152,7 @@ if (typeof L === 'undefined') {
 }
 </script>
 <script>
-// —— 8 个目的地（含预约 & 特产） ——
+// —— 8 个目的地（含预约 & 特产），坐标为 WGS-84 ——
 const DEST = [
   { name:"海拉尔（起点/终点）", lat:49.2122, lng:119.7659, note:"10/1 晚落地、10/6 返程宿此", reserve:"免预约", reserveNote:"成吉思汗广场、伊敏河畔均免费", specialty:"风干牛肉干、奶皮子/奶酪、蓝莓干、马奶酒", buy:"西山市场、友谊超市、成吉思汗广场周边特产店" },
   { name:"莫尔格勒河景区", lat:49.3200, lng:119.5500, note:"天下第一曲水，旺季观光车40元/人", reserve:"需预约", reserveNote:"提前实名预约，旺季自驾禁入", specialty:"（景区以游玩为主，特产在额尔古纳/海拉尔买）", buy:"景区北游客中心有奶制品/零食补给" },
@@ -164,7 +164,7 @@ const DEST = [
   { name:"满洲里", lat:49.5966, lng:117.4480, note:"国门(60元)+套娃广场，看夜景；10/5 宿", reserve:"免预约", reserveNote:"国门/套娃网购票有优惠，国门带身份证", specialty:"俄罗斯巧克力、紫皮糖、蜂蜜、伏特加、提拉米苏、套娃、琥珀蜜蜡", buy:"中苏金街、套娃广场商店、万达、互市贸易区（蜜蜡认准正规店要发票）" }
 ];
 
-// —— 景点（橙色圆点，含预约） ——
+// —— 景点（橙色圆点，含预约），坐标为 WGS-84 ——
 const SIGHTS = [
   { name:"成吉思汗广场", lat:49.2160, lng:119.7660, note:"海拉尔市区地标，免费", reserve:"免预约", reserveNote:"" },
   { name:"伊敏河畔", lat:49.2080, lng:119.7520, note:"海拉尔市区河边散步", reserve:"免预约", reserveNote:"" },
@@ -202,6 +202,37 @@ const LEGS = [
 
 const NUMS = ['①','②','③','④','⑤','⑥','⑦','⑧'];
 
+// —— WGS-84 → GCJ-02 坐标纠偏（高德底图是 GCJ-02） ——
+const PI = 3.1415926535897932384626;
+function outOfChina(lat, lng){ return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271; }
+function transformLat(x, y){
+  let ret = -100.0 + 2.0*x + 3.0*y + 0.2*y*y + 0.1*x*y + 0.2*Math.sqrt(Math.abs(x));
+  ret += (20.0*Math.sin(6.0*x*PI) + 20.0*Math.sin(2.0*x*PI)) * 2.0/3.0;
+  ret += (20.0*Math.sin(y*PI) + 40.0*Math.sin(y/3.0*PI)) * 2.0/3.0;
+  ret += (160.0*Math.sin(y/12.0*PI) + 320*Math.sin(y*PI/30.0)) * 2.0/3.0;
+  return ret;
+}
+function transformLng(x, y){
+  let ret = 300.0 + x + 2.0*y + 0.1*x*x + 0.1*x*y + 0.1*Math.sqrt(Math.abs(x));
+  ret += (20.0*Math.sin(6.0*x*PI) + 20.0*Math.sin(2.0*x*PI)) * 2.0/3.0;
+  ret += (20.0*Math.sin(x*PI) + 40.0*Math.sin(x/3.0*PI)) * 2.0/3.0;
+  ret += (150.0*Math.sin(x/12.0*PI) + 300.0*Math.sin(x/30.0*PI)) * 2.0/3.0;
+  return ret;
+}
+function gcj(lat, lng){
+  if (outOfChina(lat, lng)) return [lat, lng];
+  const a = 6378245.0, ee = 0.00669342162296594323;
+  let dLat = transformLat(lng - 105.0, lat - 35.0);
+  let dLng = transformLng(lng - 105.0, lat - 35.0);
+  const radLat = lat / 180.0 * PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - ee * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / ((a * (1 - ee)) / (magic * sqrtMagic) * PI);
+  dLng = (dLng * 180.0) / (a / sqrtMagic * Math.cos(radLat) * PI);
+  return [lat + dLat, lng + dLng];
+}
+
 function resBadge(r){
   if (r === '需预约') return '<div class="res rsv-need">需预约</div>';
   return '<div class="res rsv-free">免预约</div>';
@@ -209,15 +240,19 @@ function resBadge(r){
 
 const map = L.map('map', { zoomControl: true });
 
-// 底图：优先 OSM，失败自动切换到 Carto 备用源
+// 底图：优先高德（国内可访问），失败自动切换 OSM 备用
 let tileSwapped = false;
-const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 });
-const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 18, subdomains: 'abcd' });
-osmLayer.addTo(map);
-osmLayer.on('tileerror', function(){
-  if (!tileSwapped) { tileSwapped = true; map.removeLayer(osmLayer); cartoLayer.addTo(map); }
+const amapLayer = L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+  subdomains: '1234', maxZoom: 18, attribution: '&copy; 高德地图'
 });
-osmLayer.on('load', function(){ if (!tileSwapped) setStatus('底图已加载'); });
+const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 18, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+});
+amapLayer.addTo(map);
+amapLayer.on('tileerror', function(){
+  if (!tileSwapped) { tileSwapped = true; map.removeLayer(amapLayer); osmLayer.addTo(map); }
+});
+amapLayer.on('load', function(){ if (!tileSwapped) setStatus('底图已加载'); });
 
 // —— 目的地标记（蓝色数字 + 名称 + 预约标） ——
 DEST.forEach(function(d, i) {
@@ -231,7 +266,7 @@ DEST.forEach(function(d, i) {
     + '<br/>🎫 预约：' + d.reserve + (d.reserveNote ? '（' + d.reserveNote + '）' : '')
     + '<br/>🛍️ 特产：' + d.specialty
     + '<br/>🛒 推荐购买：' + d.buy;
-  L.marker([d.lat, d.lng], { icon: icon }).addTo(map).bindPopup(popup);
+  L.marker(gcj(d.lat, d.lng), { icon: icon }).addTo(map).bindPopup(popup);
 });
 
 // —— 景点标记（橙色圆点 + 名称 + 预约标） ——
@@ -244,7 +279,7 @@ SIGHTS.forEach(function(s) {
   });
   var popup = '<b>📍 ' + s.name + '</b><br/>' + s.note
     + '<br/>🎫 预约：' + s.reserve + (s.reserveNote ? '（' + s.reserveNote + '）' : '');
-  L.marker([s.lat, s.lng], { icon: icon }).addTo(map).bindPopup(popup);
+  L.marker(gcj(s.lat, s.lng), { icon: icon }).addTo(map).bindPopup(popup);
 });
 
 // —— 工具 ——
@@ -291,11 +326,12 @@ let loaded = 0;
 LEGS.forEach(function(leg) {
   const a = DEST[leg.from], b = DEST[leg.to];
   const color = DAYMETA[leg.day].color;
+  const pa = gcj(a.lat, a.lng), pb = gcj(b.lat, b.lng);
 
-  const dashed = L.polyline([[a.lat, a.lng], [b.lat, b.lng]], { color: color, weight: 4, opacity: 0.5, dashArray: "7 7" }).addTo(map);
+  const dashed = L.polyline([pa, pb], { color: color, weight: 4, opacity: 0.5, dashArray: "7 7" }).addTo(map);
   dashed.bindTooltip(DAYMETA[leg.day].label + ' · ' + leg.road + ' · ' + leg.type + ' · ' + leg.cond + ' · 里程计算中…', { sticky: true });
 
-  const mid = [(a.lat + b.lat) / 2, (a.lng + b.lng) / 2];
+  const mid = [(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2];
   const badge = L.divIcon({ className: '', html: '<div class="road ' + badgeClass(leg) + '">' + leg.short + '</div>', iconSize: [96, 20], iconAnchor: [48, 10] });
   L.marker(mid, { icon: badge, interactive: false }).addTo(map);
 
@@ -303,7 +339,7 @@ LEGS.forEach(function(leg) {
     if (res) {
       map.removeLayer(dashed);
       leg.distM = res.distM; leg.durS = res.durS; leg.real = true;
-      const line = L.polyline(res.latlngs, { color: color, weight: 5, opacity: 0.85 }).addTo(map);
+      const line = L.polyline(res.latlngs.map(function(c){ return gcj(c[0], c[1]); }), { color: color, weight: 5, opacity: 0.85 }).addTo(map);
       line.bindTooltip(DAYMETA[leg.day].label + ' · ' + leg.road + ' · ' + leg.type + ' · ' + leg.cond + ' · 约' + fmtDist(res.distM) + '·约' + fmtDur(res.durS), { sticky: true });
     } else {
       const km = haversineKm([a.lat, a.lng], [b.lat, b.lng]);
@@ -320,7 +356,6 @@ LEGS.forEach(function(leg) {
   });
 });
 
-// 兜底：若 OSRM 长时间无响应，9 秒后强制结束“加载中”状态
 setTimeout(function(){
   if (loaded < LEGS.length) {
     setStatus('路线绘制完成（部分路段暂用虚线示意）');
@@ -395,7 +430,7 @@ panel.addEventListener('click', function(e) {
   const el = e.target.closest('.day'); if (!el) return;
   const di = +el.dataset.day;
   const first = LEGS.filter(function(l){ return l.day === di; })[0];
-  if (first) map.flyTo([DEST[first.from].lat, DEST[first.from].lng], 9, { duration: 1 });
+  if (first) map.flyTo(gcj(DEST[first.from].lat, DEST[first.from].lng), 9, { duration: 1 });
 });
 
 // —— 手机：底部抽屉开关 ——
@@ -403,7 +438,7 @@ const menuBtn = document.getElementById('menuBtn');
 menuBtn.addEventListener('click', function(){ panel.classList.toggle('open'); });
 
 // —— 初始视野 ——
-const allPoints = DEST.map(function(d){ return [d.lat, d.lng]; }).concat(SIGHTS.map(function(s){ return [s.lat, s.lng]; }));
+const allPoints = DEST.map(function(d){ return gcj(d.lat, d.lng); }).concat(SIGHTS.map(function(s){ return gcj(s.lat, s.lng); }));
 map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50] });
 </script>
 </body>
