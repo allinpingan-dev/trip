@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>呼伦贝尔十一自驾路线地图（10.1–10.7）</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
+  #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #e8edf1; }
+
+  .topbar {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 1000;
+    background: rgba(20,42,64,0.94); color: #fff; padding: 9px 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  }
+  .topbar h1 { font-size: 15px; margin: 0; font-weight: 600; display: inline-block; }
+  .topbar .sub { font-size: 12px; opacity: 0.9; margin-top: 2px; }
+  .topbar .status { font-size: 12px; background: rgba(255,255,255,0.16); border-radius: 20px; padding: 2px 9px; float: right; margin-top: 2px; }
+
+  .legend {
+    position: absolute; left: 12px; bottom: 24px; z-index: 1000;
+    background: #fff; border-radius: 10px; padding: 10px 13px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.25); font-size: 12px; line-height: 1.8; max-width: 296px;
+  }
+  .legend b { font-size: 13px; }
+  .legend .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; }
+  .legend .rule { border-top: 1px dashed #ccc; margin: 6px 0; }
+  .legend .numkey { color: #142a40; font-weight: 700; }
+
+  .panel {
+    position: absolute; right: 14px; top: 70px; z-index: 1000; width: 350px;
+    background: #fff; border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,0.28);
+    max-height: calc(100% - 88px); overflow: auto; font-size: 12.5px;
+  }
+  .panel h2 { margin: 0; padding: 11px 14px; font-size: 14px; background: #142a40; color: #fff; border-radius: 12px 12px 0 0; }
+  .panel .total { padding: 9px 14px; background: #f4f8fb; border-bottom: 1px solid #e5edf2; color: #1a4b74; font-size: 12.5px; }
+  .day { padding: 9px 14px; border-bottom: 1px solid #eee; cursor: pointer; }
+  .day:hover { background: #f7fafc; }
+  .day .d { font-weight: 700; color: #142a40; }
+  .day .tag { float: right; font-size: 11px; color: #fff; border-radius: 4px; padding: 1px 6px; }
+  .day .r { color: #555; margin-top: 4px; line-height: 1.75; }
+  .day .r .stop { display: inline-block; background: #142a40; color: #fff; border-radius: 10px; padding: 0 6px; margin-right: 3px; font-size: 11px; }
+  .leg { margin-top: 5px; padding: 5px 8px; background: #fafbfc; border-radius: 7px; font-size: 11.5px; color: #444; line-height: 1.6; }
+  .leg .rt { font-weight: 700; color: #142a40; }
+  .leg .good { color: #1e7e34; font-weight: 600; }
+  .leg .warn { color: #c0392b; font-weight: 700; }
+  .leg .dd { color: #b45f06; }
+
+  .shop { padding: 10px 14px 14px; background: #fff; }
+  .shop h3 { margin: 0 0 8px; font-size: 13px; color: #142a40; }
+  .shop-item { font-size: 12px; color: #444; line-height: 1.65; padding: 6px 0; border-bottom: 1px dashed #eee; }
+  .shop-item:last-child { border-bottom: none; }
+  .shop-item b { color: #142a40; }
+  .shop-item .buy { color: #b45f06; }
+
+  .mk { display: flex; flex-direction: column; align-items: center; width: 160px; }
+  .mk .num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #142a40; color: #fff; font-weight: 700; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,0.5);
+  }
+  .mk .lbl {
+    margin-top: 2px; font-size: 12px; font-weight: 700; color: #142a40;
+    white-space: nowrap; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 4px #fff;
+  }
+  .sight { display: flex; flex-direction: column; align-items: center; width: 150px; }
+  .sight .pin {
+    width: 12px; height: 12px; background: #e67e22; border: 2px solid #fff; border-radius: 50%;
+    box-shadow: 0 0 0 1.5px #e67e22, 0 1px 5px rgba(0,0,0,0.4);
+  }
+  .sight .lbl {
+    margin-top: 3px; font-size: 11px; font-weight: 600; color: #b45f06;
+    white-space: nowrap; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 4px #fff;
+  }
+  .res { font-size: 10px; font-weight: 700; border-radius: 6px; padding: 0 5px; margin-top: 2px; line-height: 1.6; white-space: nowrap; }
+  .rsv-need { color: #fff; background: #e74c3c; }
+  .rsv-free { color: #1e7e34; background: #eaf7ef; border: 1px solid #27ae60; }
+
+  .road {
+    font-size: 10.5px; font-weight: 700; background: #fff; border-radius: 8px;
+    padding: 1px 6px; white-space: nowrap; text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .road.good { color: #1e7e34; border: 1px solid #28a745; }
+  .road.warn { color: #c0392b; border: 1px solid #e74c3c; }
+  .road.norm { color: #555; border: 1px solid #bbb; }
+  .leaflet-div-icon { background: transparent; border: none; }
+
+  #menuBtn {
+    display: none; position: absolute; right: 14px; bottom: 22px; z-index: 1200;
+    background: #142a40; color: #fff; border: none; border-radius: 24px;
+    padding: 11px 18px; font-size: 14px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+
+  @media (max-width: 768px) {
+    .topbar .sub { display: none; }
+    .topbar .status { float: none; display: inline-block; margin-top: 4px; }
+    .legend { display: none; }
+    #menuBtn { display: block; }
+    .panel {
+      left: 0; right: 0; top: auto; bottom: 0; width: 100%;
+      max-height: 62vh; border-radius: 16px 16px 0 0;
+      transform: translateY(100%); transition: transform .25s ease;
+    }
+    .panel.open { transform: translateY(0); }
+    .mk { width: 116px; } .mk .lbl { font-size: 11px; }
+    .sight { width: 114px; } .sight .lbl { font-size: 10.5px; }
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="topbar">
+  <h1>呼伦贝尔十一自驾路线（10.1–10.7）</h1>
+  <span class="status" id="status">路线加载中…</span>
+  <div class="sub">数字=目的地 · 橙点=景点 · 彩色线=每天路线 · 红标「需预约」/绿标「免预约」 · 点标记看特产与购买地</div>
+</div>
+
+<div class="legend">
+  <b>图例</b><br/>
+  <span class="dot" style="background:#e74c3c"></span>Day2 · 海拉尔→额尔古纳<br/>
+  <span class="dot" style="background:#f39c12"></span>Day3 · 额尔古纳→莫尔道嘎<br/>
+  <span class="dot" style="background:#27ae60"></span>Day4 · 莫尔道嘎→黑山头<br/>
+  <span class="dot" style="background:#2980b9"></span>Day5 · 黑山头→满洲里<br/>
+  <span class="dot" style="background:#8e44ad"></span>Day6 · 满洲里→海拉尔<br/>
+  <div class="rule"></div>
+  <span class="numkey">①</span>海拉尔　<span class="numkey">②</span>莫尔格勒河　<span class="numkey">③</span>额尔古纳<br/>
+  <span class="numkey">④</span>根河·敖鲁古雅　<span class="numkey">⑤</span>莫尔道嘎<br/>
+  <span class="numkey">⑥</span>室韦　<span class="numkey">⑦</span>黑山头　<span class="numkey">⑧</span>满洲里<br/>
+  <div class="rule"></div>
+  <span class="dot" style="background:#e67e22"></span>景点（成吉思汗广场/湿地/国门等）<br/>
+  <span style="color:#c0392b;font-weight:700">红标「需预约」</span> = 仅莫尔格勒河<br/>
+  <span style="color:#1e7e34;font-weight:700">绿标「免预约」</span> = 其余景点<br/>
+  <span style="color:#1e7e34;font-weight:700">🛣 绿标签</span> = 柏油/高速　<span style="color:#c0392b;font-weight:700">红标签</span> = 砂石/土路<br/>
+  <span style="color:#999">虚线 = 该段暂无道路数据，里程为直线估算</span>
+</div>
+
+<div class="panel" id="panel"></div>
+<button id="menuBtn">📋 行程 / 特产</button>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+if (typeof L === 'undefined') {
+  var s = document.createElement('script');
+  s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+  document.head.appendChild(s);
+}
+</script>
+<script>
+// —— 8 个目的地（含预约 & 特产） ——
+const DEST = [
+  { name:"海拉尔（起点/终点）", lat:49.2122, lng:119.7659, note:"10/1 晚落地、10/6 返程宿此", reserve:"免预约", reserveNote:"成吉思汗广场、伊敏河畔均免费", specialty:"风干牛肉干、奶皮子/奶酪、蓝莓干、马奶酒", buy:"西山市场、友谊超市、成吉思汗广场周边特产店" },
+  { name:"莫尔格勒河景区", lat:49.3200, lng:119.5500, note:"天下第一曲水，旺季观光车40元/人", reserve:"需预约", reserveNote:"提前实名预约，旺季自驾禁入", specialty:"（景区以游玩为主，特产在额尔古纳/海拉尔买）", buy:"景区北游客中心有奶制品/零食补给" },
+  { name:"额尔古纳（湿地+市区）", lat:50.2410, lng:120.1800, note:"额尔古纳湿地看马蹄岛，门票+观光车约80元；10/2 宿", reserve:"免预约", reserveNote:"国庆建议提前网购票避排队", specialty:"野生蓝莓酱/蓝莓干、山珍(蘑菇/木耳)、蜂蜜、俄式列巴", buy:"市区农贸市场、俄罗斯商品店" },
+  { name:"根河·敖鲁古雅", lat:50.7800, lng:121.5000, note:"喂驯鹿、看鄂温克撮罗子，门票58元；10/3 途经", reserve:"免预约", reserveNote:"现场/网购票均可", specialty:"鹿茸/鹿产品、桦树皮工艺品、松子、野生蘑菇", buy:"敖鲁古雅景区猎民手工艺品店、市区特产店" },
+  { name:"莫尔道嘎镇", lat:51.3600, lng:120.7900, note:"森林小火车（约100元），大兴安岭金秋；10/3 宿", reserve:"免预约", reserveNote:"小火车现场购票，早班", specialty:"松子、榛子、木耳、蘑菇、桦树皮/木制工艺品", buy:"莫尔道嘎镇土特产店、农贸市场" },
+  { name:"室韦", lat:51.3430, lng:119.9050, note:"俄式木刻楞+额尔古纳河界河，快停1h；10/4 途经", reserve:"免预约", reserveNote:"免费小镇", specialty:"现烤俄罗斯列巴、格瓦斯、俄式糕点、蜂蜜", buy:"室韦面包房、木刻楞小店" },
+  { name:"黑山头镇", lat:50.2200, lng:119.6100, note:"草原日落+骑马，蒙古包选有暖气；10/4 宿", reserve:"免预约", reserveNote:"骑马现场议价", specialty:"草原风干牛肉、奶制品、马奶酒", buy:"镇内牧户/民宿自产、草原特产店" },
+  { name:"满洲里", lat:49.5966, lng:117.4480, note:"国门(60元)+套娃广场，看夜景；10/5 宿", reserve:"免预约", reserveNote:"国门/套娃网购票有优惠，国门带身份证", specialty:"俄罗斯巧克力、紫皮糖、蜂蜜、伏特加、提拉米苏、套娃、琥珀蜜蜡", buy:"中苏金街、套娃广场商店、万达、互市贸易区（蜜蜡认准正规店要发票）" }
+];
+
+// —— 景点（橙色圆点，含预约） ——
+const SIGHTS = [
+  { name:"成吉思汗广场", lat:49.2160, lng:119.7660, note:"海拉尔市区地标，免费", reserve:"免预约", reserveNote:"" },
+  { name:"伊敏河畔", lat:49.2080, lng:119.7520, note:"海拉尔市区河边散步", reserve:"免预约", reserveNote:"" },
+  { name:"额尔古纳湿地·马蹄岛", lat:50.2700, lng:120.1500, note:"门票+观光车约80元，俯瞰马蹄岛", reserve:"免预约", reserveNote:"国庆建议提前网购票" },
+  { name:"敖鲁古雅使鹿部落", lat:50.7500, lng:121.4500, note:"喂驯鹿，门票58元", reserve:"免预约", reserveNote:"" },
+  { name:"莫尔道嘎森林公园·小火车", lat:51.4200, lng:120.8000, note:"森林小火车约100元", reserve:"免预约", reserveNote:"现场购票，坐早班" },
+  { name:"室韦·界河", lat:51.3500, lng:119.8800, note:"额尔古纳河界河+木刻楞", reserve:"免预约", reserveNote:"" },
+  { name:"黑山头·日落观景台", lat:50.2250, lng:119.6000, note:"看草原日落、骑马", reserve:"免预约", reserveNote:"" },
+  { name:"满洲里国门景区", lat:49.5140, lng:117.4780, note:"国门60元（含观光车75元）", reserve:"免预约", reserveNote:"边境区带身份证" },
+  { name:"满洲里套娃广场", lat:49.5680, lng:117.4410, note:"套娃主题+大马戏/冰舞秀", reserve:"免预约", reserveNote:"大马戏/冰舞秀看场次" },
+  { name:"呼伦湖·小河口（可选）", lat:49.1500, lng:117.6000, note:"Day6 顺路可选", reserve:"免预约", reserveNote:"" },
+  { name:"扎赉诺尔猛犸公园（可选）", lat:49.4500, lng:117.6800, note:"Day6 顺路可选，带娃友好", reserve:"免预约", reserveNote:"" }
+];
+
+// —— 每天配色 ——
+const DAYMETA = [
+  { label:"Day2 · 10/2", tag:"海拉尔→额尔古纳", color:"#e74c3c" },
+  { label:"Day3 · 10/3", tag:"额尔古纳→莫尔道嘎", color:"#f39c12" },
+  { label:"Day4 · 10/4", tag:"莫尔道嘎→黑山头", color:"#27ae60" },
+  { label:"Day5 · 10/5", tag:"黑山头→满洲里", color:"#2980b9" },
+  { label:"Day6 · 10/6", tag:"满洲里→海拉尔", color:"#8e44ad" }
+];
+
+// —— 每段路（from/to = DEST 下标），含道路类型与路况 ——
+const LEGS = [
+  { day:0, from:0, to:1, short:"G332·柏油", road:"G332/S201 国道", type:"柏油路", cond:"路况好" },
+  { day:0, from:1, to:2, short:"S201·柏油", road:"S201 国道", type:"柏油路", cond:"路况好" },
+  { day:1, from:2, to:3, short:"S201·林区柏油", road:"S201/G332", type:"林区柏油路", cond:"较好·部分弯道" },
+  { day:1, from:3, to:4, short:"根白公路·多弯", road:"根白公路 S302", type:"林区柏油路", cond:"弯多坡多·冻土沉降坑洼·慢行" },
+  { day:2, from:4, to:5, short:"林区路·盘山", road:"林区公路", type:"柏油路", cond:"盘山弯多" },
+  { day:2, from:5, to:6, short:"卡线·砂石", road:"边防公路·卡线", type:"砂石/土路(部分柏油)", cond:"坑洼·扬尘·雨后泥泞·最颠" },
+  { day:3, from:6, to:7, short:"G331·柏油", road:"G331/G301 国道", type:"柏油路", cond:"路况好" },
+  { day:4, from:7, to:0, short:"G10·高速", road:"G10绥满高速/G301", type:"柏油/高速", cond:"路况最好" }
+];
+
+const NUMS = ['①','②','③','④','⑤','⑥','⑦','⑧'];
+
+function resBadge(r){
+  if (r === '需预约') return '<div class="res rsv-need">需预约</div>';
+  return '<div class="res rsv-free">免预约</div>';
+}
+
+const map = L.map('map', { zoomControl: true });
+
+// 底图：优先 OSM，失败自动切换到 Carto 备用源
+let tileSwapped = false;
+const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 });
+const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 18, subdomains: 'abcd' });
+osmLayer.addTo(map);
+osmLayer.on('tileerror', function(){
+  if (!tileSwapped) { tileSwapped = true; map.removeLayer(osmLayer); cartoLayer.addTo(map); }
+});
+osmLayer.on('load', function(){ if (!tileSwapped) setStatus('底图已加载'); });
+
+// —— 目的地标记（蓝色数字 + 名称 + 预约标） ——
+DEST.forEach(function(d, i) {
+  const icon = L.divIcon({
+    className: '',
+    html: '<div class="mk"><div class="num">' + (i + 1) + '</div><div class="lbl">' + d.name.replace(/（.*?）|\(.*?\)/g, '') + '</div>' + resBadge(d.reserve) + '</div>',
+    iconSize: [160, 66],
+    iconAnchor: [80, 12]
+  });
+  var popup = '<b>' + NUMS[i] + ' ' + d.name + '</b><br/>' + d.note
+    + '<br/>🎫 预约：' + d.reserve + (d.reserveNote ? '（' + d.reserveNote + '）' : '')
+    + '<br/>🛍️ 特产：' + d.specialty
+    + '<br/>🛒 推荐购买：' + d.buy;
+  L.marker([d.lat, d.lng], { icon: icon }).addTo(map).bindPopup(popup);
+});
+
+// —— 景点标记（橙色圆点 + 名称 + 预约标） ——
+SIGHTS.forEach(function(s) {
+  const icon = L.divIcon({
+    className: '',
+    html: '<div class="sight"><div class="pin"></div><div class="lbl">' + s.name + '</div>' + resBadge(s.reserve) + '</div>',
+    iconSize: [150, 50],
+    iconAnchor: [75, 7]
+  });
+  var popup = '<b>📍 ' + s.name + '</b><br/>' + s.note
+    + '<br/>🎫 预约：' + s.reserve + (s.reserveNote ? '（' + s.reserveNote + '）' : '');
+  L.marker([s.lat, s.lng], { icon: icon }).addTo(map).bindPopup(popup);
+});
+
+// —— 工具 ——
+function haversineKm(a, b){
+  const R = 6371, toR = function(x){ return x * Math.PI / 180; };
+  const dLat = toR(b[0] - a[0]), dLng = toR(b[1] - a[1]);
+  const s = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toR(a[0])) * Math.cos(toR(b[0])) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+function fmtDist(m){ const km = m / 1000; return km >= 10 ? Math.round(km) + 'km' : km.toFixed(1) + 'km'; }
+function fmtDur(s){
+  const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+  if (h <= 0) return m + '分钟';
+  if (m === 0) return h + '小时';
+  return h + '小时' + m + '分';
+}
+function badgeClass(l){
+  if (l.type.indexOf('砂石') >= 0 || l.type.indexOf('土路') >= 0) return 'warn';
+  if (l.type.indexOf('高速') >= 0 || l.type.indexOf('柏油') >= 0) return 'good';
+  return 'norm';
+}
+
+// —— 道路路径：每段独立请求 OSRM（7s 超时） ——
+async function fetchRoute(leg){
+  const a = DEST[leg.from], b = DEST[leg.to];
+  const url = 'https://router.project-osrm.org/route/v1/driving/' + a.lng + ',' + a.lat + ';' + b.lng + ',' + b.lat + '?overview=full&geometries=geojson&steps=false';
+  const ctrl = new AbortController();
+  const t = setTimeout(function(){ ctrl.abort(); }, 7000);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if (j.code !== 'Ok' || !j.routes || !j.routes.length) throw new Error('no route');
+    const rt = j.routes[0];
+    return { latlngs: rt.geometry.coordinates.map(function(c){ return [c[1], c[0]]; }), distM: rt.distance, durS: rt.duration };
+  } catch (e) {
+    clearTimeout(t);
+    return null;
+  }
+}
+
+let loaded = 0;
+LEGS.forEach(function(leg) {
+  const a = DEST[leg.from], b = DEST[leg.to];
+  const color = DAYMETA[leg.day].color;
+
+  const dashed = L.polyline([[a.lat, a.lng], [b.lat, b.lng]], { color: color, weight: 4, opacity: 0.5, dashArray: "7 7" }).addTo(map);
+  dashed.bindTooltip(DAYMETA[leg.day].label + ' · ' + leg.road + ' · ' + leg.type + ' · ' + leg.cond + ' · 里程计算中…', { sticky: true });
+
+  const mid = [(a.lat + b.lat) / 2, (a.lng + b.lng) / 2];
+  const badge = L.divIcon({ className: '', html: '<div class="road ' + badgeClass(leg) + '">' + leg.short + '</div>', iconSize: [96, 20], iconAnchor: [48, 10] });
+  L.marker(mid, { icon: badge, interactive: false }).addTo(map);
+
+  fetchRoute(leg).then(function(res) {
+    if (res) {
+      map.removeLayer(dashed);
+      leg.distM = res.distM; leg.durS = res.durS; leg.real = true;
+      const line = L.polyline(res.latlngs, { color: color, weight: 5, opacity: 0.85 }).addTo(map);
+      line.bindTooltip(DAYMETA[leg.day].label + ' · ' + leg.road + ' · ' + leg.type + ' · ' + leg.cond + ' · 约' + fmtDist(res.distM) + '·约' + fmtDur(res.durS), { sticky: true });
+    } else {
+      const km = haversineKm([a.lat, a.lng], [b.lat, b.lng]);
+      leg.distM = km * 1000; leg.durS = km / 55 * 3600; leg.real = false;
+      dashed.bindTooltip(DAYMETA[leg.day].label + ' · ' + leg.road + ' · ' + leg.type + ' · ' + leg.cond + ' · 约' + fmtDist(leg.distM) + '·约' + fmtDur(leg.durS) + '（直线估算）', { sticky: true });
+    }
+    loaded++;
+    renderPanel();
+    if (loaded === LEGS.length) {
+      setStatus('路线已绘制（' + LEGS.filter(function(l){ return l.real; }).length + '/' + LEGS.length + ' 段按实际道路）');
+    } else {
+      setStatus('路线加载中… ' + loaded + '/' + LEGS.length);
+    }
+  });
+});
+
+// 兜底：若 OSRM 长时间无响应，9 秒后强制结束“加载中”状态
+setTimeout(function(){
+  if (loaded < LEGS.length) {
+    setStatus('路线绘制完成（部分路段暂用虚线示意）');
+  }
+}, 9000);
+
+function setStatus(t){ document.getElementById('status').textContent = t; }
+
+// —— 右侧清单 ——
+const panel = document.getElementById('panel');
+function renderPanel(){
+  const allDone = LEGS.every(function(l){ return l.distM != null; });
+  const totalM = allDone ? LEGS.reduce(function(a, l){ return a + l.distM; }, 0) : null;
+  const totalS = allDone ? LEGS.reduce(function(a, l){ return a + l.durS; }, 0) : null;
+
+  let html = '<h2>行程清单（数字=目的地）</h2>';
+  if (allDone) {
+    html += '<div class="total">全程约 <b>' + fmtDist(totalM) + '</b> · 驾驶约 <b>' + fmtDur(totalS) + '</b></div>';
+  } else {
+    html += '<div class="total">全程里程计算中…</div>';
+  }
+
+  DAYMETA.forEach(function(dm, di) {
+    const legs = LEGS.filter(function(l){ return l.day === di; });
+    const order = [];
+    legs.forEach(function(l){
+      if (order[order.length - 1] !== l.from) order.push(l.from);
+      order.push(l.to);
+    });
+    let stopsHtml = '';
+    order.forEach(function(i){
+      stopsHtml += '<span class="stop">' + NUMS[i] + '</span>' + DEST[i].name.replace(/（.*?）|\(.*?\)/g, '') + ' ';
+    });
+
+    let legHtml = '';
+    legs.forEach(function(l){
+      let dd;
+      if (l.distM != null) {
+        dd = '<span class="dd">约' + fmtDist(l.distM) + '·约' + fmtDur(l.durS) + (l.real ? '' : '（估算）') + '</span>';
+      } else {
+        dd = '<span class="dd">里程计算中…</span>';
+      }
+      let rc;
+      if (badgeClass(l) === 'warn') {
+        rc = '<span class="warn">⚠ ' + l.type + ' · ' + l.cond + '</span>';
+      } else {
+        rc = '<span class="good">' + l.type + ' · ' + l.cond + '</span>';
+      }
+      legHtml += '<div class="leg"><span class="rt">' + l.road + '</span> ' + rc + '<br/>' + dd + '</div>';
+    });
+
+    html += '<div class="day" data-day="' + di + '">'
+      + '<span class="d">' + dm.label + '</span>'
+      + '<span class="tag" style="background:' + dm.color + '">' + dm.tag + '</span>'
+      + '<div class="r">' + stopsHtml + '</div>'
+      + legHtml
+      + '</div>';
+  });
+
+  html += '<div class="shop"><h3>🛍️ 各地特产 & 推荐购买点</h3>';
+  DEST.forEach(function(d, i){
+    html += '<div class="shop-item"><b>' + NUMS[i] + ' ' + d.name.replace(/（.*?）|\(.*?\)/g, '') + '</b>：' + d.specialty
+      + '<br/><span class="buy">🛒 ' + d.buy + '</span></div>';
+  });
+  html += '</div>';
+
+  panel.innerHTML = html;
+}
+renderPanel();
+
+panel.addEventListener('click', function(e) {
+  const el = e.target.closest('.day'); if (!el) return;
+  const di = +el.dataset.day;
+  const first = LEGS.filter(function(l){ return l.day === di; })[0];
+  if (first) map.flyTo([DEST[first.from].lat, DEST[first.from].lng], 9, { duration: 1 });
+});
+
+// —— 手机：底部抽屉开关 ——
+const menuBtn = document.getElementById('menuBtn');
+menuBtn.addEventListener('click', function(){ panel.classList.toggle('open'); });
+
+// —— 初始视野 ——
+const allPoints = DEST.map(function(d){ return [d.lat, d.lng]; }).concat(SIGHTS.map(function(s){ return [s.lat, s.lng]; }));
+map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50] });
+</script>
+</body>
+</html>
