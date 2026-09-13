@@ -75,6 +75,9 @@
     margin-top: 3px; font-size: 11px; font-weight: 600; color: #b45f06;
     white-space: nowrap; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 4px #fff;
   }
+  .spot { display: flex; flex-direction: column; align-items: center; width: 150px; }
+  .spot .pin { width: 12px; height: 12px; background: #9b59b6; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1.5px #9b59b6, 0 1px 5px rgba(0,0,0,0.4); }
+  .spot .lbl { margin-top: 3px; font-size: 11px; font-weight: 600; color: #7d3c98; white-space: nowrap; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 4px #fff; }
   .res { font-size: 10px; font-weight: 700; border-radius: 6px; padding: 0 5px; margin-top: 2px; line-height: 1.6; white-space: nowrap; }
   .rsv-need { color: #fff; background: #e74c3c; }
   .rsv-free { color: #1e7e34; background: #eaf7ef; border: 1px solid #27ae60; }
@@ -122,6 +125,7 @@
     .panel.open { transform: translateY(0); }
     .mk { width: 116px; } .mk .lbl { font-size: 11px; }
     .sight { width: 114px; } .sight .lbl { font-size: 10.5px; }
+    .spot { width: 114px; } .spot .lbl { font-size: 10.5px; }
   }
 </style>
 </head>
@@ -148,6 +152,7 @@
   <span class="numkey">⑥</span>室韦　<span class="numkey">⑦</span>黑山头　<span class="numkey">⑧</span>满洲里<br/>
   <div class="rule"></div>
   <span class="dot" style="background:#e67e22"></span>景点（成吉思汗广场/湿地/国门等）<br/>
+  <span class="dot" style="background:#9b59b6"></span>打卡点（白桦林/恩和/临江屯等）<br/>
   <span style="color:#c0392b;font-weight:700">红标「需预约」</span> = 仅莫尔格勒河<br/>
   <span style="color:#1e7e34;font-weight:700">绿标「免预约」</span> = 其余景点<br/>
   <span style="color:#1e7e34;font-weight:700">🛣 绿标签</span> = 柏油/高速　<span style="color:#c0392b;font-weight:700">红标签</span> = 砂石/土路<br/>
@@ -192,6 +197,16 @@ const SIGHTS = [
   { name:"满洲里套娃广场", lat:49.5680, lng:117.4410, note:"套娃主题+大马戏/冰舞秀", reserve:"免预约", reserveNote:"大马戏/冰舞秀看场次" },
   { name:"呼伦湖·小河口（可选）", lat:49.1500, lng:117.6000, note:"Day6 顺路可选", reserve:"免预约", reserveNote:"" },
   { name:"扎赉诺尔猛犸公园（可选）", lat:49.4500, lng:117.6800, note:"Day6 顺路可选，带娃友好", reserve:"免预约", reserveNote:"" }
+];
+
+// —— 打卡点（摄影/网红点，紫色圆点） ——
+const SPOTS = [
+  { name:"中国冷极·根河", lat:50.7820, lng:121.5280, note:"根河=中国冷极，市区有冷极地标；Day3顺路" },
+  { name:"恩和俄罗斯民族乡", lat:50.8210, lng:119.9090, note:"俄式木刻楞小镇（绕行可选，不在主环线）" },
+  { name:"白桦林景区", lat:50.5280, lng:120.1200, note:"金秋白桦林（绕行可选，额尔古纳→恩和路上）" },
+  { name:"临江屯", lat:51.4400, lng:119.9700, note:"界河日落、比室韦原生态（室韦往北约10km，小绕行）" },
+  { name:"白鹿岛", lat:51.9510, lng:120.8470, note:"莫尔道嘎森林深处·激流河大拐弯（需绕行约80km）" },
+  { name:"满洲里北湖公园", lat:49.5920, lng:117.4350, note:"满洲里夜景打卡，Day5晚上" }
 ];
 
 // —— 每天配色 ——
@@ -319,6 +334,17 @@ SIGHTS.forEach(function(s) {
   var popup = '<b>📍 ' + s.name + '</b><br/>' + s.note
     + '<br/>🎫 预约：' + s.reserve + (s.reserveNote ? '（' + s.reserveNote + '）' : '');
   L.marker(gcj(s.lat, s.lng), { icon: icon }).addTo(map).bindPopup(popup);
+});
+
+// —— 打卡点标记（紫色圆点） ——
+SPOTS.forEach(function(p) {
+  const icon = L.divIcon({
+    className: '',
+    html: '<div class="spot"><div class="pin"></div><div class="lbl">' + p.name + '</div></div>',
+    iconSize: [150, 30],
+    iconAnchor: [75, 7]
+  });
+  L.marker(gcj(p.lat, p.lng), { icon: icon }).addTo(map).bindPopup('<b>📷 ' + p.name + '</b><br/>' + p.note);
 });
 
 // —— 工具 ——
@@ -499,7 +525,7 @@ layerBtn.addEventListener('click', function(){
 });
 
 // —— 初始视野 ——
-const allPoints = DEST.map(function(d){ return gcj(d.lat, d.lng); }).concat(SIGHTS.map(function(s){ return gcj(s.lat, s.lng); }));
+const allPoints = DEST.map(function(d){ return gcj(d.lat, d.lng); }).concat(SIGHTS.map(function(s){ return gcj(s.lat, s.lng); })).concat(SPOTS.map(function(p){ return gcj(p.lat, p.lng); }));
 map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50] });
 </script>
 </body>
